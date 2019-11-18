@@ -1,0 +1,15 @@
+node_modules/
+.editorconfig
+.git
+Makefile
+NOTICE
+README.md
+arm/
+powerpc/
+mips/
+.vscode/
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
