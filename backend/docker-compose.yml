@@ -4,27 +4,24 @@ services:
   db:
     container_name: raedar_db
     image: postgres
-    hostname: db
     environment:
-      GET_HOST_FROM: dns
-      POSTGRES_DB: raedar_db
+      POSTGRES_DB: dev
+      POSTGRES_USER: raedar_api
       POSTGRES_PASSWORD: krs1krs1
     ports:
       - 5432:5432
-    networks:
-      - raedarnet
 
   app:
-    command: tail -f /dev/null
-    image: golang:1.12.6-stretch
+    image: raedar/backend:v1.0
     ports:
-      - 8000:8000
+      - 8000:8080
     volumes:
       # This is go modules cache, without it you will have to
       # re-download all dependencies after restarting container
       - modules:/go/pkg/mod/cache
       - ./:/code:cached
     working_dir: /backend
+    depends_on: db
 
   volumes:
     modules:
@@ -40,15 +37,15 @@ services:
     environment:
       GET_HOST_FROM: dns
     networks:
-    - raedarapi
+      - raedarnet
     volumes:
-    - .:/go/backend/raedarAPI
+      - .:/go/backend/raedarAPI
     ports: 
-    - 8080:8080
+      - 8080:8080
     depends_on:
-    - db
+      - db
     links:
-    - db
+      - db
     labels:
       kompose.service.type: loadBalancer
 
