@@ -30,6 +30,9 @@ start: buildapp runapp
 down:
 	docker-compose down
 
+rundocker:
+	docker run -p 8080:8008 -it raedar/backend
+
 test:
 	go test -v -cover ./...
 
