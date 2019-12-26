@@ -13,6 +13,11 @@ up: default
 	@echo "=============starting api locally============="
 	docker-compose up -d
 
+setdevenv:
+	@echo "============= setting MODE to DEV_MODE  ============="
+	export MODE=DEV_MODE
+	@echo MODE is ==> $$MODE
+
 logs:
 	docker-compose logs -f
 
@@ -25,7 +30,7 @@ runapp:
 	@echo "======app running on port:8080 in development......"
 	./bin/main
 
-start: buildapp runapp
+start: setdevenv buildapp runapp
 
 down:
 	docker-compose down
@@ -33,8 +38,14 @@ down:
 rundocker:
 	docker run -p 8080:8008 -it raedar/backend
 
-test:
+runtest:
 	go test -v -cover ./...
+
+settestenv:
+	@echo "============= setting MODE to TESTING_MODE  ============="
+	export MODE=TESTING_MODE
+
+testapp: settestenv runtest
 
 compile:
 	GOOS=freebsd GOARCH=386 go build -o bin/main-freebsd-386 cmd/app/main.go

@@ -8,6 +8,7 @@
 *.dll
 *.so
 *.dylib
+*.pem
 
 # Test binary, build with `go test -c`
 *.test
@@ -26,3 +27,6 @@ _vendor-*
 bin/
 # or
 */bin/*
+
+DEV_MODE
+TESTING_MODE

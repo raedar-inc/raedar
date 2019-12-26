@@ -9,16 +9,17 @@ import (
 	"github.com/badoux/checkmail"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jinzhu/gorm"
+	"github.com/segmentio/ksuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"raedar/pkg/repository/engines"
 	"raedar/pkg/repository/models"
+	"raedar/tools"
 )
 
-// Token for user - JWT claims struct
-type Token struct {
-	UserID uint
-	jwt.StandardClaims
+func genKsuuid() ksuid.KSUID {
+	uuid := ksuid.New()
+	return uuid
 }
 
 // User struct defines a user domain Model
@@ -26,7 +27,7 @@ type User struct{}
 
 //UserServicer service interface
 type userServicer interface {
-	FindById(id int) (*models.User, error)
+	FindByUID(id int) (*models.User, error)
 	FindByEmail(email string) (*models.User, error)
 	FindByChangePasswordHash(hash string) (*models.User, error)
 	FindByValidationHash(hash string) (*models.User, error)
@@ -40,7 +41,7 @@ func hash(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 }
 
-func verifyPassword(hashedPassword, password string) error {
+func (u *User) VerifyPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
@@ -54,6 +55,7 @@ func (u *User) BeforeSave(user *models.User) error {
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 	user.IsClient = false
+	user.UUID = genKsuuid()
 	user.IsVerified = false
 	user.IsCustomer = true
 	return nil
@@ -65,7 +67,7 @@ func (u *User) prepare(user *models.User) {
 }
 
 // validate: validates incoming user (object) map before continuing to store it to the DB.
-func (u *User) validate(action string, user *models.User) string {
+func (u *User) Validate(action string, user *models.User) string {
 	switch strings.ToLower(action) {
 	case "update":
 		if user.Password == "" {
@@ -124,25 +126,19 @@ func (u *User) validate(action string, user *models.User) string {
 }
 
 // Save method saves a new user to the database.
-func (u *User) Save(user *models.User) (*User, string) {
-	err := u.validate("", user)
+func (u *User) Save(user *models.User) (*models.User, string) {
+	err := u.Validate("", user)
 	if err != "" {
 		return nil, err
 	}
-	engines.PostgresDB().Create(&user)
-	return u, ""
-}
 
-// GetUser Returns a single user
-func (u *User) GetUser(id uint) *models.User {
-	user := &models.User{}
-	engines.PostgresDB().Table("users").Where("id = ?", id).First(user)
-	if user.Email == "" { //User not found!
-		return nil
+	errorBS := u.BeforeSave(user)
+	if errorBS != nil {
+		return nil, "failed to save the user"
 	}
 
-	user.Password = ""
-	return user
+	engines.PostgresDB().Create(&user)
+	return user, ""
 }
 
 // FindAllUsers returns all users stored in the database
@@ -157,11 +153,84 @@ func (u *User) FindAllUsers(db *gorm.DB) (*[]models.User, error) {
 }
 
 // FindUserByID returns a single user record given User Id
-func (u *User) FindUserByID(uid uint32) (*models.User, error) {
+func (u *User) FindByUID(uid ksuid.KSUID) (*models.User, error) {
 	user := &models.User{}
-	engines.PostgresDB().Find(&user)
+	engines.PostgresDB().Table("users").Where("UUID = ?", uid).First(&user)
 	if user.Email == "" {
 		return nil, errors.New("No user found")
 	}
 	return user, nil
+}
+
+// FindByEmail returns a single user record given User email address
+func (u *User) FindByEmail(email string) (*models.User, error) {
+	user := &models.User{}
+	engines.PostgresDB().Table("users").Where("Email = ?", email).First(&user)
+	if user.Email == "" {
+		return nil, errors.New("No user found")
+	}
+	return user, nil
+}
+
+// FindByUsername returns a single user record given Username
+func (u *User) FindByUsername(username string) (*models.User, error) {
+	user := &models.User{}
+	engines.PostgresDB().Table("users").Where("Username = ?", username).First(&user)
+	if user.Username == "" {
+		return nil, errors.New("No user found")
+	}
+	return user, nil
+}
+
+// AccessToken creates a user access jwt token
+func (u *User) AccessToken(user *models.User) (string, error) {
+	var err error
+	ecdsaKey := tools.GetPrivEcdsaKey()
+
+	// Set claims
+	// This is the information which frontend can use
+	// The backend can also decode the token and get admin etc.
+	claims := jwt.MapClaims{}
+	claims["authorized"] = true
+	claims["user_id"] = user.ID
+	claims["isAdmin"] = user.IsAdmin
+	claims["isClient"] = user.IsClient
+	claims["isCustomer"] = user.IsCustomer
+	claims["email"] = user.Email
+	claims["exp"] = time.Now().Add(time.Hour * 1).Unix() //Token expires after 1 hour
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+
+	// create access_token
+	accessToken, err := token.SignedString(ecdsaKey)
+	if err != nil {
+		return "", err
+	}
+
+	return accessToken, nil
+}
+
+// AccessToken creates a user access jwt token
+func (u *User) RefreshToken(user *models.User) (string, error) {
+	var err error
+	ecdsaKey := tools.GetPrivEcdsaKey()
+
+	// Set claims
+	// This is the information which frontend can use
+	// The backend can also decode the token and get admin etc.
+	rfClaims := jwt.MapClaims{}
+	rfClaims["sub"] = 1
+	rfClaims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+	// generate refresh token
+	rfToken := jwt.NewWithClaims(jwt.SigningMethodES256, rfClaims)
+
+	refreshToken, err := rfToken.SignedString(ecdsaKey)
+	if err != nil {
+		return "", err
+	}
+
+	engines.PostgresDB().First(&user)
+	user.RefreshToken = refreshToken
+	engines.PostgresDB().Save(&user)
+
+	return refreshToken, nil
 }
