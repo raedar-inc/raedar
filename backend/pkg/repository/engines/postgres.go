@@ -13,16 +13,26 @@ import (
 var db *gorm.DB
 
 func init() {
-	err := godotenv.Load()
+	var err error
+	err = godotenv.Load()
 	if err != nil {
-		log.Print("Failed to load environment variables", err)
+		log.Print("Failed to load environment variables and trying again:\n", err)
+		err = godotenv.Load("../../../.env")
+	}
+	if err != nil {
+		log.Print("Failed to load environment variables completely ", err)
 	}
 
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-	dbPort := os.Getenv("DB_PORT")
-	dbHost := os.Getenv("DB_HOST")
+	var dbUser = os.Getenv("DB_USER")
+	var dbPassword = os.Getenv("DB_PASSWORD")
+	var dbName = os.Getenv("DB_NAME")
+	var dbPort = os.Getenv("DB_PORT")
+	var dbHost = os.Getenv("DB_HOST")
+
+	if mode := os.Getenv("MODE"); mode == "TESTING_MODE" {
+		dbPassword = os.Getenv("TEST_DB_PASSWORD")
+		dbName = os.Getenv("TEST_DB_NAME")
+	}
 
 	// Build connection string
 	dbURI := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable password=%s", dbHost, dbPort, dbUser, dbName, dbPassword)
@@ -30,10 +40,10 @@ func init() {
 	// connect to the database
 	conn, err := gorm.Open("postgres", dbURI)
 	if err != nil {
-		fmt.Printf("Cannot connect to %s database", "postgres")
+		fmt.Printf("Cannot connect to %s database:\n ", "postgres")
 		log.Fatal("This is the error:", err)
 	} else {
-		fmt.Printf("We are connected to the %s database", "postgres")
+		fmt.Printf("We are connected to the %v database\n", dbName)
 	}
 
 	db = conn
