@@ -1,54 +1,68 @@
-version: '3'
+version: '3.7'
 
 services:
-  db:
-    container_name: raedar_db
+  postgresdb:
     image: postgres
     environment:
       POSTGRES_DB: dev
       POSTGRES_USER: raedar_api
       POSTGRES_PASSWORD: krs1krs1
     ports:
-      - 5432:5432
+      - 5432
+    volumes:
+      # - "/var/run/postgres/postgres.sock:/var/run/postgres/postgres.sock"
+      - "dbdata:/var/lib/postgresql/data"
+    networks:
+      - back
+
+  redis:
+    image: redis:alpine
+    networks:
+      - back
+    deploy:
+      replicas: 4
 
   app:
-    image: raedar/backend:v1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: raedar_backend
+    # cache_from:
+    #   - raedar/raedar_backend:1.0
+    labels: 
+      - "com.example.description=Raedar App"
+      - "com.example.department=Raedar Software"
+      - "com.example.label-with-empty-value="
+    deploy:
+      mode: replicated
+      replicas: 4
+    networks:
+      - overlay
     ports:
-      - 8000:8080
+      - 8080:8080
     volumes:
       # This is go modules cache, without it you will have to
       # re-download all dependencies after restarting container
       - modules:/go/pkg/mod/cache
       - ./:/code:cached
     working_dir: /backend
-    depends_on: db
-
-  volumes:
-    modules:
-      driver: local
-    
-  raedarapi:
-    container_name: raedar_api
-    image: fahdjamy/raedarapi:v1
-    hostname: raedarapi
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      GET_HOST_FROM: dns
-    networks:
-      - raedarnet
-    volumes:
-      - .:/go/backend/raedarAPI
-    ports: 
-      - 8080:8080
     depends_on:
-      - db
-    links:
-      - db
-    labels:
-      kompose.service.type: loadBalancer
+      - postgresdb
+      - redis
+    networks:
+      - back
+    # restart_policy:
+    #   condition: on-failure
+    #   delay: 5s
+    #   max_attempts: 3
+    #   window: 10s
 
-  networks: 
-    raedarnet:
-      driver: brigde
+volumes:
+  modules:
+    driver: local
+  mydata:
+  dbdata:
+
+networks:
+  back:
+    driver: bridge
