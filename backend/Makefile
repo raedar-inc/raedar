@@ -11,7 +11,7 @@ default:
 
 up: default
 	@echo "=============starting api locally============="
-	docker-compose up -d
+	docker-compose up
 
 setdevenv:
 	@echo "============= setting MODE to DEV_MODE  ============="
@@ -32,6 +32,9 @@ runapp:
 
 start: setdevenv buildapp runapp
 
+start-watch:
+	~/go/bin/CompileDaemon -build="go build cmd/app/main.go" -command="./main" -include=Makefile -include="*.less" -include="*.tmpl"
+
 down:
 	docker-compose down
 
@@ -46,6 +49,9 @@ settestenv:
 	export MODE=TESTING_MODE
 
 testapp: settestenv runtest
+
+compose-watch:
+	watchexec --restart --exts "go" --watch . "docker-compose restart app"
 
 compile:
 	GOOS=freebsd GOARCH=386 go build -o bin/main-freebsd-386 cmd/app/main.go

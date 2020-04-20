@@ -1,68 +1,53 @@
 version: '3.7'
 
 services:
-  postgresdb:
+  db:
     image: postgres
     environment:
-      POSTGRES_DB: dev
-      POSTGRES_USER: raedar_api
+      POSTGRES_DB: raedar_dev
+      POSTGRES_USER: raedar_admin
       POSTGRES_PASSWORD: krs1krs1
     ports:
-      - 5432
+      - 5432:5432
     volumes:
-      # - "/var/run/postgres/postgres.sock:/var/run/postgres/postgres.sock"
-      - "dbdata:/var/lib/postgresql/data"
+      - database_postgres:/var/lib/postgresql/data
     networks:
-      - back
+      - mynet
 
   redis:
     image: redis:alpine
     networks:
-      - back
-    deploy:
-      replicas: 4
+      - mynet
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: raedar_backend
-    # cache_from:
-    #   - raedar/raedar_backend:1.0
     labels: 
       - "com.example.description=Raedar App"
       - "com.example.department=Raedar Software"
       - "com.example.label-with-empty-value="
-    deploy:
-      mode: replicated
-      replicas: 4
     networks:
-      - overlay
+      - mynet
     ports:
-      - 8080:8080
+      - 8080:8080 
     volumes:
-      # This is go modules cache, without it you will have to
-      # re-download all dependencies after restarting container
-      - modules:/go/pkg/mod/cache
+      - go-modules:/go/pkg/mod/cache
       - ./:/code:cached
-    working_dir: /backend
     depends_on:
-      - postgresdb
       - redis
-    networks:
-      - back
-    # restart_policy:
-    #   condition: on-failure
-    #   delay: 5s
-    #   max_attempts: 3
-    #   window: 10s
+      - db
+    links:
+      - db
+      - redis
+    env_file:
+      - docker.env
 
 volumes:
-  modules:
-    driver: local
-  mydata:
-  dbdata:
+  go-modules:
+  database_postgres:
 
 networks:
-  back:
+  mynet:
     driver: bridge

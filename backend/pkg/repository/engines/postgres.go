@@ -2,12 +2,13 @@ package engines
 
 import (
 	"fmt"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres" // postges dialect for database connection
-	"github.com/joho/godotenv"
 	"log"
 	"os"
 	models "raedar/pkg/repository/models"
+
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/postgres" // postges dialect for database connection
+	"github.com/joho/godotenv"
 )
 
 var db *gorm.DB
@@ -20,14 +21,18 @@ func init() {
 		err = godotenv.Load("../../../.env")
 	}
 	if err != nil {
+		log.Print("Failed to load environment variables and trying the docker.env file :\n", err)
+		err = godotenv.Load("../../../docker.env")
+	}
+	if err != nil {
 		log.Print("Failed to load environment variables completely ", err)
 	}
 
 	var dbUser = os.Getenv("DB_USER")
-	var dbPassword = os.Getenv("DB_PASSWORD")
 	var dbName = os.Getenv("DB_NAME")
 	var dbPort = os.Getenv("DB_PORT")
 	var dbHost = os.Getenv("DB_HOST")
+	var dbPassword = os.Getenv("DB_PASSWORD")
 
 	if mode := os.Getenv("MODE"); mode == "TESTING_MODE" {
 		dbPassword = os.Getenv("TEST_DB_PASSWORD")
@@ -40,7 +45,7 @@ func init() {
 	// connect to the database
 	conn, err := gorm.Open("postgres", dbURI)
 	if err != nil {
-		fmt.Printf("Cannot connect to %s database:\n ", "postgres")
+		fmt.Printf("Cannot connect to %s database\n ", dbName)
 		log.Fatal("This is the error:", err)
 	} else {
 		fmt.Printf("We are connected to the %v database\n", dbName)

@@ -5,6 +5,9 @@
 # Default to Go 1.13
 ARG GO_VERSION=1.13
 
+ARG USER_ID=1000
+ARG GROUP_ID=1100
+
 FROM golang:${GO_VERSION}-alpine AS builder
 
 # We create an /app directory within our
@@ -36,10 +39,8 @@ WORKDIR /raedar/
 
 RUN go get -d -v golang.org/x/net/html
 
-# ENV GOPATH /app
-
 # Copy go mod and sum files
-COPY go.mod go.sum ./
+COPY go.mod go.sum docker.env ./
 COPY . .
 
 # Compile the binary, we don't want to run the cgo
@@ -73,7 +74,7 @@ COPY --from=builder /raedar/bin/main /app/main
 EXPOSE 8080
 
 # Perform any further action as an unprivileged user.
-USER nobody:nobody
+# USER nobody:nobody
 
 # Run the compiled binary.
 CMD ["/app/main"]
