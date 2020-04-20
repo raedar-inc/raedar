@@ -13,7 +13,6 @@ import (
 
 func init() {
 	_, err := os.Open("private_key.pem")
-
 	if err != nil {
 		fmt.Println(err)
 		generateEcdsaKeys()
