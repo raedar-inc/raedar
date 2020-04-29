@@ -17,11 +17,9 @@ func init() {
 	var err error
 	err = godotenv.Load()
 	if err != nil {
-		log.Print("Failed to load environment variables and trying again:\n", err)
 		err = godotenv.Load("../../../.env")
 	}
-	if err != nil {
-		log.Print("Failed to load environment variables and trying the docker.env file :\n", err)
+	if mode := os.Getenv("MODE"); err != nil && mode == "CONTAINERIZED" {
 		err = godotenv.Load("../../../docker.env")
 	}
 	if err != nil {
@@ -37,6 +35,7 @@ func init() {
 	if mode := os.Getenv("MODE"); mode == "TESTING_MODE" {
 		dbPassword = os.Getenv("TEST_DB_PASSWORD")
 		dbName = os.Getenv("TEST_DB_NAME")
+		dbUser = os.Getenv("TEST_DB_USER")
 	}
 
 	// Build connection string
@@ -48,7 +47,7 @@ func init() {
 		fmt.Printf("Cannot connect to %s database\n ", dbName)
 		log.Fatal("This is the error:", err)
 	} else {
-		fmt.Printf("We are connected to the %v database\n", dbName)
+		fmt.Printf("Connected to the '%v' database\n", dbName)
 	}
 
 	db = conn

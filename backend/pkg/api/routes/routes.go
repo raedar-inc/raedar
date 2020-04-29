@@ -1,10 +1,11 @@
 package routes
 
 import (
-	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/julienschmidt/httprouter"
 
 	"raedar/pkg/api/routes/auth"
 )

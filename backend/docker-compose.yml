@@ -24,6 +24,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: raedar_backend
+    environment:
+      MODE: CONTAINERIZED
     labels: 
       - "com.example.description=Raedar App"
       - "com.example.department=Raedar Software"
