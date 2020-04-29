@@ -1,1 +1,0 @@
-### Raedar License

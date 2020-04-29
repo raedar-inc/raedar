@@ -1,0 +1,55 @@
+version: '3.7'
+
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_DB: raedar_dev
+      POSTGRES_USER: raedar_admin
+      POSTGRES_PASSWORD: krs1krs1
+    ports:
+      - 5432:5432
+    volumes:
+      - database_postgres:/var/lib/postgresql/data
+    networks:
+      - mynet
+
+  redis:
+    image: redis:alpine
+    networks:
+      - mynet
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: raedar_backend
+    environment:
+      MODE: CONTAINERIZED
+    labels: 
+      - "com.example.description=Raedar App"
+      - "com.example.department=Raedar Software"
+      - "com.example.label-with-empty-value="
+    networks:
+      - mynet
+    ports:
+      - 8080:8080 
+    volumes:
+      - go-modules:/go/pkg/mod/cache
+      - ./:/code:cached
+    depends_on:
+      - redis
+      - db
+    links:
+      - db
+      - redis
+    env_file:
+      - docker.env
+
+volumes:
+  go-modules:
+  database_postgres:
+
+networks:
+  mynet:
+    driver: bridge
