@@ -32,10 +32,12 @@ func init() {
 	var dbHost = os.Getenv("DB_HOST")
 	var dbPassword = os.Getenv("DB_PASSWORD")
 
-	if mode := os.Getenv("MODE"); mode == "TESTING_MODE" {
+	if mode := os.Getenv("MODE"); mode == "TESTING" {
 		dbPassword = os.Getenv("TEST_DB_PASSWORD")
 		dbName = os.Getenv("TEST_DB_NAME")
 		dbUser = os.Getenv("TEST_DB_USER")
+		dbPort = os.Getenv("TEST_DB_PORT")
+		dbHost = os.Getenv("TEST_DB_HOST")
 	}
 
 	// Build connection string

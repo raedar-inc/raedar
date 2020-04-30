@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	_ "raedar/pkg/repository/engines"
+	_ "raedar/tools"
 
 	"github.com/julienschmidt/httprouter"
 )

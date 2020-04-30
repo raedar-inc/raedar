@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -31,6 +32,13 @@ func Endpoints() {
 
 	// Route Handlers / Endpoints
 	authentication.Routes(router)
+	s := http.Server{
+		Addr:              ":8080",
+		Handler:           router,
+		WriteTimeout:      1 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 1 * time.Second,
+	}
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(s.ListenAndServe())
 }

@@ -25,6 +25,7 @@ func generateEcdsaKeys() {
 
 	// save private and public key separately
 	privkeyPemFile, err := os.Create("private_key.pem")
+	defer privkeyPemFile.Close()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -37,7 +38,6 @@ func generateEcdsaKeys() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	privkeyPemFile.Close()
 
 	// save public key
 	pubKeyPemFile, err := os.Create("pub_key.pem")
