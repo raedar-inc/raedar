@@ -92,6 +92,11 @@ func (u *User) Validate(action string, user *models.User) string {
 			return "Invalid Email"
 		}
 		return ""
+	case "reset-password":
+		if err := checkmail.ValidateFormat(user.Email); err != nil {
+			return "Invalid Email provided"
+		}
+		return ""
 
 	default:
 		if user.Password == "" {

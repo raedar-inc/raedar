@@ -12,5 +12,6 @@ require (
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/segmentio/ksuid v1.0.2
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c
+	golang.org/x/net v0.0.0-20190311183353-d8887717615a
 	gopkg.in/go-playground/assert.v1 v1.2.1
 )

@@ -36,6 +36,8 @@ jobs:
         with:
           MODE: TESTING
           TEST_DB_HOST: 127.0.0.1
+          SENDER_EMAIL_ADDRESS: ${{ secrets.SENDER_EMAIL_ADDRESS }}
+          SENDER_EMAIL_PASSWORD: ${{ secrets.SENDER_EMAIL_PASSWORD }}
           TEST_DB_USER: postgres
           TEST_DB_PASSWORD: postgres
           TEST_DB_NAME: raedar_test
@@ -49,4 +51,6 @@ jobs:
           TEST_DB_PASSWORD: postgres
           TEST_DB_NAME: raedar_test
           TEST_DB_PORT: 5432
+          SENDER_EMAIL_ADDRESS: ${{ secrets.SENDER_EMAIL_ADDRESS }}
+          SENDER_EMAIL_PASSWORD: ${{ secrets.SENDER_EMAIL_PASSWORD }}
         run: go test -v -cover ./...

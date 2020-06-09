@@ -4,7 +4,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"time"
+
+	"context"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -40,5 +43,17 @@ func Endpoints() {
 		ReadHeaderTimeout: 1 * time.Second,
 	}
 
-	log.Fatal(s.ListenAndServe())
+	go func() {
+		log.Fatal(s.ListenAndServe())
+	}()
+
+	ch := make(chan os.Signal)
+	signal.Notify(ch, os.Interrupt)
+	signal.Notify(ch, os.Kill)
+
+	<-ch
+
+	ctx, ctxFunc := context.WithTimeout(context.Background(), 100*time.Second)
+	ctxFunc()
+	s.Shutdown(ctx)
 }
