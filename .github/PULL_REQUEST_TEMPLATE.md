@@ -15,9 +15,9 @@ Summarise the main tasks handled in the pull request
 
 Describe (in detail) what the task completed in the pull request will add to the product.
 
-**Provide test plan?(required)**
+**Provide a test plan? (required)**
 
-Give bullet point instructions on how to setup the code and test it manually (Assume no prior experience on JS or code). See [What is a Test Plan?][1] to learn more.
+Give bullet point instructions on how to set up the code and test it manually (Assume no prior experience on JS or code). See [What is a Test Plan?][1] to learn more.
 
 **Any background context you want to provide?**
 

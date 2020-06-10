@@ -1,16 +1,19 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"raedar/pkg/utils"
 
 	"github.com/julienschmidt/httprouter"
 
 	"raedar/pkg/api/responses"
 	"raedar/pkg/repository/models"
 	"raedar/pkg/repository/services"
+	//"raedar/pkg/utils"
 )
 
 type userRegisterRequest struct {
@@ -128,6 +131,84 @@ func (h *Handlers) login() httprouter.Handle {
 	}
 }
 
+// Forgot password functionality for users who forgot their passwords.
+func (h *Handlers) forgotPassword() httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		var errResponse = &responses.APIError{}
+		var errStr string
+		data, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			h.logger.Print(err)
+			errResponse = &responses.APIError{Error: err, Success: true, Status: http.StatusBadRequest}
+		}
+
+		userData := &models.User{}
+		userService := services.User{}
+		err = json.Unmarshal(data, &userData)
+		if err != nil {
+			errResponse = &responses.APIError{
+				Error:   "please provide an email",
+				Status:  http.StatusBadRequest,
+				Success: true,
+			}
+			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+			h.logger.Print(err)
+			return
+		}
+
+		errStr = userService.Validate("reset-password", userData)
+		if errStr != "" {
+			errResponse = &responses.APIError{Error: errStr, Success: false, Status: http.StatusBadRequest}
+			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+			return
+		}
+
+		_, err = userService.FindByEmail(userData.Email)
+		if err != nil {
+			var resetPasswordUrl bytes.Buffer
+			var msg bytes.Buffer
+			resetPasswordUrl.WriteString("http://127.0.0.1:8080/api/v1/password/reset/")
+			token, _ := utils.CreateResetPasswordToken(userData.Email)
+			resetPasswordUrl.WriteString(token)
+			msg.WriteString(
+				`Click the link below to reset your password, if this wasn't you, please ignore this message`)
+			msg.WriteString("\n\n")
+			msg.WriteString(resetPasswordUrl.String())
+			msg.WriteString("\n\n")
+			msg.WriteString("Thanks")
+			emailSubject := "Reset password"
+			email := utils.Email{Email: userData.Email}
+			err := email.SendEmail(emailSubject, msg.String())
+			if err != nil {
+				h.logger.Print(err)
+			}
+		}
+
+		response := &responses.JSONSuccess{
+			Data: map[string]string{
+				"message": "a password-reset url has been sent to your email to reset your password",
+			},
+			Success: true,
+		}
+		responses.JSON(w, http.StatusOK, response)
+	}
+}
+
+// Reset password functionality for users who forgot their passwords.
+func (h *Handlers) resetPassword() httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+		token := params.ByName("token")
+		response := &responses.JSONSuccess{
+			Data: map[string]string{
+				"token":   token,
+				"message": "Your password has been reset successfully",
+			},
+			Success: true,
+		}
+		responses.JSON(w, http.StatusOK, response)
+	}
+}
+
 // NewHandler returns user handlers struct
 func NewHandler(logger *log.Logger) *Handlers {
 	return &Handlers{
@@ -139,4 +220,6 @@ func NewHandler(logger *log.Logger) *Handlers {
 func (h *Handlers) Routes(router *httprouter.Router) {
 	router.POST("/api/v1/signup", h.register())
 	router.POST("/api/v1/login", h.login())
+	router.POST("/api/v1/password/reset", h.forgotPassword())
+	router.POST("/api/v1/password/reset/:token", h.resetPassword())
 }

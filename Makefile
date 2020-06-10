@@ -33,7 +33,7 @@ runapp:
 start: setdevenv buildapp runapp
 
 start-watch:
-	~/go/bin/CompileDaemon -build="go build cmd/app/main.go" -command="./main" -include=Makefile -include="*.less" -include="*.tmpl"
+	~/go/bin/CompileDaemon -build="go build cmd/app/main.go" -command="./main" -include=Makefile -exclude-dir=.git
 
 down:
 	docker-compose down
