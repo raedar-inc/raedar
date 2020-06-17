@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/dgrijalva/jwt-go"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"raedar/pkg/api/responses"
 	"raedar/pkg/repository/models"
 	"raedar/pkg/repository/services"
-	//"raedar/pkg/utils"
 )
 
 type userRegisterRequest struct {
@@ -27,18 +27,21 @@ type Handlers struct {
 	logger *log.Logger
 }
 
+var (
+	userService = services.User{}
+	errResponse = &responses.APIError{}
+)
+
 // Register registers a new user into the system.
 func (h *Handlers) register() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		data, err := ioutil.ReadAll(r.Body)
-		var errResponse = &responses.APIError{}
 		if err != nil {
 			h.logger.Print(err)
 			errResponse = &responses.APIError{Error: err, Success: false, Status: http.StatusBadRequest}
 		}
 
 		user := models.User{}
-		userService := services.User{}
 		err = json.Unmarshal(data, &user)
 		if err != nil {
 			errResponse = &responses.APIError{Error: err, Success: false, Status: http.StatusBadRequest}
@@ -47,9 +50,9 @@ func (h *Handlers) register() httprouter.Handle {
 			return
 		}
 
-		userCreated, erro := userService.Save(&user)
-		if erro != "" {
-			errResponse = &responses.APIError{Error: erro, Success: false, Status: http.StatusBadRequest}
+		userCreated, errStr := userService.Save(&user)
+		if errStr != "" {
+			errResponse = &responses.APIError{Error: errStr, Success: false, Status: http.StatusBadRequest}
 			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
 			return
 		}
@@ -63,23 +66,20 @@ func (h *Handlers) register() httprouter.Handle {
 func (h *Handlers) login() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		data, err := ioutil.ReadAll(r.Body)
-		var errResponse = &responses.APIError{}
-		var erro string
+		var errStr string
 
 		if err != nil {
-			h.logger.Print(err)
-			errResponse = &responses.APIError{Error: err, Success: true, Status: http.StatusBadRequest}
+			errResponse = &responses.APIError{Error: err, Success: false, Status: http.StatusBadRequest}
 		}
 
 		user := &models.User{}
 		userData := &models.User{}
-		userService := services.User{}
 		err = json.Unmarshal(data, &user)
 		err = json.Unmarshal(data, &userData)
 		if err != nil {
 			errResponse = &responses.APIError{
 				Error:   "please provide email and password to login",
-				Success: true,
+				Success: false,
 				Status:  http.StatusBadRequest,
 			}
 			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
@@ -87,10 +87,9 @@ func (h *Handlers) login() httprouter.Handle {
 			return
 		}
 
-		erro = userService.Validate("login", user)
-		if erro != "" {
-			h.logger.Print(erro)
-			errResponse = &responses.APIError{Error: erro, Success: false, Status: http.StatusBadRequest}
+		errStr = userService.Validate("login", user)
+		if errStr != "" {
+			errResponse = &responses.APIError{Error: errStr, Success: false, Status: http.StatusBadRequest}
 			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
 			return
 		}
@@ -132,14 +131,14 @@ func (h *Handlers) login() httprouter.Handle {
 }
 
 // Forgot password functionality for users who forgot their passwords.
-func (h *Handlers) forgotPassword() httprouter.Handle {
+func (h *Handlers) requestResetPassword() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		var errResponse = &responses.APIError{}
 		var errStr string
 		data, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			h.logger.Print(err)
-			errResponse = &responses.APIError{Error: err, Success: true, Status: http.StatusBadRequest}
+			errResponse = &responses.APIError{Error: err, Success: false, Status: http.StatusBadRequest}
 		}
 
 		userData := &models.User{}
@@ -149,7 +148,7 @@ func (h *Handlers) forgotPassword() httprouter.Handle {
 			errResponse = &responses.APIError{
 				Error:   "please provide an email",
 				Status:  http.StatusBadRequest,
-				Success: true,
+				Success: false,
 			}
 			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
 			h.logger.Print(err)
@@ -163,8 +162,7 @@ func (h *Handlers) forgotPassword() httprouter.Handle {
 			return
 		}
 
-		_, err = userService.FindByEmail(userData.Email)
-		if err != nil {
+		if user, _ := userService.FindByEmail(userData.Email); user != nil {
 			var resetPasswordUrl bytes.Buffer
 			var msg bytes.Buffer
 			resetPasswordUrl.WriteString("http://127.0.0.1:8080/api/v1/password/reset/")
@@ -198,9 +196,76 @@ func (h *Handlers) forgotPassword() httprouter.Handle {
 func (h *Handlers) resetPassword() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		token := params.ByName("token")
+		data, err := utils.DecodeToken(token)
+
+		type requestData struct {
+			Password        string `json:"password"`
+			ConfirmPassword string `json:"confirmPassword"`
+		}
+
+		if err != nil {
+			h.logger.Print(err)
+			errResponse = &responses.APIError{
+				Error:   "Your token has expired",
+				Success: false,
+				Status:  http.StatusBadRequest,
+			}
+			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+			return
+		}
+		email, ok := data.(jwt.MapClaims)["email"]
+		emailStr, ok := email.(string)
+		if !ok {
+			errResponse = &responses.APIError{Error: "Invalid token", Success: false, Status: http.StatusBadRequest}
+			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+			return
+		}
+
+		userData := requestData{}
+		bodyData, err := ioutil.ReadAll(r.Body)
+		err = json.Unmarshal(bodyData, &userData)
+		if err != nil {
+			errResponse = &responses.APIError{
+				Error:   "please an password and a confirm password",
+				Status:  http.StatusBadRequest,
+				Success: false,
+			}
+			responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+			return
+		}
+		user, err := userService.FindByEmail(emailStr)
+		if err == nil {
+			err = userService.VerifyPassword(user.Password, userData.Password)
+			if err != nil {
+				errResponse = &responses.APIError{
+					Error:   "password cannot be the same as current password",
+					Status:  http.StatusBadRequest,
+					Success: false,
+				}
+				responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+				h.logger.Print(err)
+				return
+			}
+			if !userService.ComparePasswordToConfirmPassword(userData.Password, userData.Password) {
+				errResponse = &responses.APIError{
+					Error:   "confirmPassword should be the same as password",
+					Status:  http.StatusBadRequest,
+					Success: false,
+				}
+				responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+				return
+			}
+			_, errStr := userService.Update(user)
+			if errStr != "" {
+				errResponse = &responses.APIError{Error: errStr, Status: http.StatusUnprocessableEntity, Success: false}
+				responses.ERROR(w, http.StatusUnprocessableEntity, errResponse)
+				return
+			}
+		}
+
 		response := &responses.JSONSuccess{
-			Data: map[string]string{
-				"token":   token,
+			Data: map[string]interface{}{
+				"email":   email,
 				"message": "Your password has been reset successfully",
 			},
 			Success: true,
@@ -220,6 +285,6 @@ func NewHandler(logger *log.Logger) *Handlers {
 func (h *Handlers) Routes(router *httprouter.Router) {
 	router.POST("/api/v1/signup", h.register())
 	router.POST("/api/v1/login", h.login())
-	router.POST("/api/v1/password/reset", h.forgotPassword())
+	router.POST("/api/v1/password/reset", h.requestResetPassword())
 	router.POST("/api/v1/password/reset/:token", h.resetPassword())
 }
