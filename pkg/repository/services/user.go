@@ -146,10 +146,31 @@ func (u *User) Save(user *models.User) (*models.User, string) {
 	return user, ""
 }
 
+// Update method updates a records columns.
+func (u *User) Update(user *models.User) (*models.User, string) {
+	if user.Password != "" {
+		hashedPassword, err := hash(user.Password)
+		if err != nil {
+			return nil, "Something went wrong"
+		}
+		user.Password = string(hashedPassword)
+	}
+	engines.PostgresDB().Select(user.Email).Updates(&user)
+	return user, ""
+}
+
+// ComparePasswordToConfirmPassword compares a password to the confirm password for equality
+func (u *User) ComparePasswordToConfirmPassword(password, confirmPassword string) bool {
+	if password == confirmPassword {
+		return true
+	}
+	return false
+}
+
 // FindAllUsers returns all users stored in the database
 func (u *User) FindAllUsers(db *gorm.DB) (*[]models.User, error) {
 	var err error
-	users := []models.User{}
+	var users []models.User
 	err = db.Debug().Model(&User{}).Find(&users).Error
 	if err != nil {
 		return &[]models.User{}, err
@@ -182,7 +203,7 @@ func (u *User) FindByUsername(username string) (*models.User, error) {
 	user := &models.User{}
 	engines.PostgresDB().Table("users").Where("Username = ?", username).First(&user)
 	if user.Username == "" {
-		return nil, errors.New("No user found")
+		return nil, errors.New("no user found")
 	}
 	return user, nil
 }
