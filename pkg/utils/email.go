@@ -20,7 +20,7 @@ func (s *smtpServer) address() string {
 	return s.host + ":" + s.port
 }
 
-func (e Email) SendEmail(emailSubject, msgBody string) error {
+func (e Email) SendEmail(emailSubject string, msgBody string, emailResponse chan error) {
 	smtpServer := smtpServer{host: "smtp.gmail.com", port: "587"}
 	senderEmail := os.Getenv("SENDER_EMAIL_ADDRESS")
 	senderPass := os.Getenv("SENDER_EMAIL_PASSWORD")
@@ -34,7 +34,7 @@ func (e Email) SendEmail(emailSubject, msgBody string) error {
 
 	err := smtp.SendMail(smtpServer.address(), auth, senderEmail, to, message)
 	if err != nil {
-		return err
+		emailResponse <- err
 	}
-	return nil
+	emailResponse <- nil
 }

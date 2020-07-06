@@ -25,29 +25,19 @@ func genKsuuid() ksuid.KSUID {
 // User struct defines a user domain Model
 type User struct{}
 
-//UserServicer service interface
-type userServicer interface {
-	FindByUID(id int) (*models.User, error)
-	FindByEmail(email string) (*models.User, error)
-	FindByChangePasswordHash(hash string) (*models.User, error)
-	FindByValidationHash(hash string) (*models.User, error)
-	FindAllUsers() ([]*models.User, error)
-	Update(user *models.User) error
-	Delete(id int) error
-	Save(user *models.User) (*models.User, error)
-}
-
-func hash(password string) ([]byte, error) {
+// HashPassword hashes passwords for security reasons.
+func HashPassword(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 }
 
+// VerifyPassword compares a hashed password to a non-hashed password
 func (u *User) VerifyPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
 // BeforeSave This method will be triggered before creating a new user
 func (u *User) BeforeSave(user *models.User) error {
-	hashedPassword, err := hash(user.Password)
+	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
 		return err
 	}
@@ -147,16 +137,13 @@ func (u *User) Save(user *models.User) (*models.User, string) {
 }
 
 // Update method updates a records columns.
-func (u *User) Update(user *models.User) (*models.User, string) {
-	if user.Password != "" {
-		hashedPassword, err := hash(user.Password)
-		if err != nil {
-			return nil, "Something went wrong"
-		}
-		user.Password = string(hashedPassword)
+func (u *User) Update(user *models.User, updateUserDate map[string]interface{}) (*models.User, error) {
+	// db := engines.PostgresDB().Select(user.Email).Updates(&user)
+	db := engines.PostgresDB().Model(&models.User{}).Where("id = ?", user.ID).Updates(updateUserDate)
+	if db.Error != nil {
+		return nil, db.Error
 	}
-	engines.PostgresDB().Select(user.Email).Updates(&user)
-	return user, ""
+	return user, nil
 }
 
 // ComparePasswordToConfirmPassword compares a password to the confirm password for equality
